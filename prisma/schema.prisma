@@ -1,0 +1,51 @@
+// Prisma Schema - Define a estrutura do banco de dados
+// Documentação: https://www.prisma.io/docs/concepts/components/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para definir os tipos de usuário
+enum UserType {
+  COMMON    // Usuário comum - pode enviar e receber
+  MERCHANT  // Lojista - só pode receber
+}
+
+// Tabela de Usuários
+model User {
+  id        Int      @id @default(autoincrement())
+  fullName  String   @map("full_name")
+  document  String   @unique              // CPF ou CNPJ
+  email     String   @unique
+  password  String
+  balance   Decimal  @default(0) @db.Decimal(10, 2)  // Saldo da carteira
+  userType  UserType @default(COMMON) @map("user_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  sentTransfers     Transfer[] @relation("PayerTransfers")
+  receivedTransfers Transfer[] @relation("PayeeTransfers")
+
+  @@map("users")
+}
+
+// Tabela de Transferências
+model Transfer {
+  id        Int      @id @default(autoincrement())
+  value     Decimal  @db.Decimal(10, 2)
+  payerId   Int      @map("payer_id")
+  payeeId   Int      @map("payee_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  payer User @relation("PayerTransfers", fields: [payerId], references: [id])
+  payee User @relation("PayeeTransfers", fields: [payeeId], references: [id])
+
+  @@map("transfers")
+}

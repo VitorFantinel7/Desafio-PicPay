@@ -1,0 +1,46 @@
+# Docker Compose - Orquestra os containers da aplicação
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: picpay-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: picpay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Aplicação Node.js
+  app:
+    build: .
+    container_name: picpay-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/picpay?schema=public
+      PORT: 3000
+      AUTHORIZER_URL: https://util.devi.tools/api/v2/authorize
+      NOTIFICATION_URL: https://util.devi.tools/api/v1/notify
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "npx prisma migrate deploy && 
+             npx prisma db seed && 
+             npm start"
+
+volumes:
+  postgres_data:
